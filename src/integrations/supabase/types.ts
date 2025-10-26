@@ -71,27 +71,36 @@ export type Database = {
       profiles: {
         Row: {
           created_at: string | null
+          current_weight: number | null
           daily_calorie_goal: number | null
           daily_water_goal: number | null
+          height: number | null
           id: string
+          target_weight: number | null
           updated_at: string | null
           username: string
           weight_goal: string | null
         }
         Insert: {
           created_at?: string | null
+          current_weight?: number | null
           daily_calorie_goal?: number | null
           daily_water_goal?: number | null
+          height?: number | null
           id: string
+          target_weight?: number | null
           updated_at?: string | null
           username: string
           weight_goal?: string | null
         }
         Update: {
           created_at?: string | null
+          current_weight?: number | null
           daily_calorie_goal?: number | null
           daily_water_goal?: number | null
+          height?: number | null
           id?: string
+          target_weight?: number | null
           updated_at?: string | null
           username?: string
           weight_goal?: string | null
@@ -127,7 +136,15 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      calculate_recommended_calories: {
+        Args: {
+          p_current_weight: number
+          p_height?: number
+          p_target_weight: number
+          p_weight_goal: string
+        }
+        Returns: number
+      }
     }
     Enums: {
       [_ in never]: never
