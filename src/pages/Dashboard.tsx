@@ -4,14 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Droplets, Target, TrendingUp, LogOut, Upload } from "lucide-react";
+import { Droplets, Target, TrendingUp, LogOut, Upload, Zap } from "lucide-react";
 import { toast } from "sonner";
+import WeightSettings from "@/components/WeightSettings";
+import WaterIntakeTracker from "@/components/WaterIntakeTracker";
 
 interface Profile {
+  id: string;
   username: string;
   daily_calorie_goal: number;
   daily_water_goal: number;
   weight_goal: string;
+  current_weight?: number | null;
+  target_weight?: number | null;
+  height?: number | null;
 }
 
 interface MealSummary {
@@ -32,6 +38,7 @@ const Dashboard = () => {
     totalFat: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [recommendedCalories, setRecommendedCalories] = useState<number | null>(null);
 
   useEffect(() => {
     checkAuth();
@@ -88,6 +95,21 @@ const Dashboard = () => {
         .single();
 
       if (waterData) setWaterIntake(waterData.amount);
+
+      // Calculate recommended calories if weight data is available
+      if (profileData?.current_weight && profileData?.target_weight) {
+        const { data: calorieData, error: calorieError } = await supabase
+          .rpc('calculate_recommended_calories', {
+            p_current_weight: profileData.current_weight,
+            p_target_weight: profileData.target_weight,
+            p_weight_goal: profileData.weight_goal,
+            p_height: profileData.height || 170
+          });
+
+        if (!calorieError && calorieData) {
+          setRecommendedCalories(calorieData);
+        }
+      }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -147,6 +169,47 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
+        {/* Weight Settings */}
+        <WeightSettings
+          userId={profile?.id || ""}
+          currentWeight={profile?.current_weight}
+          targetWeight={profile?.target_weight}
+          height={profile?.height}
+          onUpdate={fetchDashboardData}
+        />
+
+        {/* Personalized Calorie Advice */}
+        {recommendedCalories && profile?.current_weight && profile?.target_weight && (
+          <Card className="mb-8 bg-gradient-to-r from-accent to-accent-light border-0">
+            <CardContent className="pt-6">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-background/20 rounded-lg">
+                  <Zap className="w-6 h-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <h3 className="text-xl font-semibold text-white mb-2">Your Weekly Calorie Plan</h3>
+                  <div className="space-y-2 text-white/90">
+                    <p>Current Weight: <span className="font-semibold">{profile.current_weight} kg</span></p>
+                    <p>Target Weight: <span className="font-semibold">{profile.target_weight} kg</span></p>
+                    <p>Recommended Daily Calories: <span className="font-semibold">{recommendedCalories} cal</span></p>
+                    <p className="text-sm mt-3 bg-white/10 p-3 rounded-lg">
+                      {profile.weight_goal === 'lose' && 
+                        `To lose weight healthily, aim for ${recommendedCalories} calories per day. This creates a 500-calorie deficit, helping you lose about 0.5kg per week.`
+                      }
+                      {profile.weight_goal === 'gain' && 
+                        `To gain weight healthily, aim for ${recommendedCalories} calories per day. This creates a 500-calorie surplus, helping you gain about 0.5kg per week.`
+                      }
+                      {profile.weight_goal === 'maintain' && 
+                        `To maintain your weight, aim for ${recommendedCalories} calories per day, matching your daily energy expenditure.`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           {/* Calorie Card */}
@@ -175,31 +238,13 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          {/* Water Card */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <Droplets className="w-5 h-5 text-blue-500" />
-                Water Intake
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div>
-                  <div className="flex justify-between text-sm mb-2">
-                    <span className="font-medium">{waterIntake} ml</span>
-                    <span className="text-muted-foreground">of {profile?.daily_water_goal} ml</span>
-                  </div>
-                  <Progress value={waterProgress} className="h-2" />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {profile && profile.daily_water_goal - waterIntake > 0
-                    ? `${profile.daily_water_goal - waterIntake} ml to go`
-                    : "Well hydrated!"}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+          {/* Water Card with Tracker */}
+          <WaterIntakeTracker
+            userId={profile?.id || ""}
+            currentIntake={waterIntake}
+            dailyGoal={profile?.daily_water_goal || 2000}
+            onUpdate={fetchDashboardData}
+          />
 
           {/* Goal Card */}
           <Card>
